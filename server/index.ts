@@ -56,7 +56,7 @@ import fs from "fs";
 // 404 Handler for APIs (Only for /api/* routes)
 // ============================================================
 
-app.use("/api/*", (_req, res) => {
+app.use("/api", (_req, res) => {
   res.status(404).json({
     error: "Not Found",
     message: "The requested resource does not exist.",
@@ -78,7 +78,7 @@ const servePath = fs.existsSync(distPath) ? distPath : fallbackDistPath;
 app.use(express.static(servePath));
 
 // For React Router HTML History API Fallback
-app.get("*", (req, res, next) => {
+app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(servePath, "index.html"));
 });
