@@ -48,8 +48,8 @@ async function request<T = unknown>(
 }
 
 export class ApiError extends Error {
-  public status: number;
-  public error: string;
+  status: number;
+  error: string;
 
   constructor(status: number, error: string, message: string) {
     super(message);
