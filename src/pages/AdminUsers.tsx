@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { api, type AdminUser, type AdminUserStats } from '../lib/api';
+import { api, type AdminUser, type AdminUserStats, type ReadingSessionWithEbook } from '../lib/api';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -11,6 +11,39 @@ export default function AdminUsers() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+
+  // History Modal State
+  const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
+  const [history, setHistory] = useState<ReadingSessionWithEbook[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const openHistory = async (user: AdminUser) => {
+    setHistoryUser(user);
+    setHistoryPage(1);
+    fetchHistory(user.id, 1);
+  };
+
+  const fetchHistory = async (userId: string, p: number) => {
+    setHistoryLoading(true);
+    try {
+      const res = await api.admin.users.history(userId, { page: p, limit: 5 });
+      setHistory(res.data);
+      setHistoryTotalPages(res.pagination.totalPages);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -177,7 +210,10 @@ export default function AdminUsers() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
-                              <button onClick={() => handleDelete(u.id)} className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all">
+                              <button onClick={() => openHistory(u)} title="View Reading History" className="p-2 text-on-surface-variant hover:text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-all">
+                                <span className="material-symbols-outlined text-lg">history</span>
+                              </button>
+                              <button onClick={() => handleDelete(u.id)} title="Delete User" className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all">
                                 <span className="material-symbols-outlined text-lg">delete_sweep</span>
                               </button>
                             </div>
@@ -241,6 +277,88 @@ export default function AdminUsers() {
             </div>
           )}
         </div>
+
+        {/* History Modal */}
+        {historyUser && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-surface-container/95 border border-outline-variant/20 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="px-8 py-6 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-low/30">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-surface-container-highest border border-outline-variant/20">
+                     {historyUser.image ? (
+                        <img alt={historyUser.name} className="object-cover h-full w-full" src={historyUser.image} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm font-bold text-on-surface-variant">
+                          {historyUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                      )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-on-surface">Reading History</h3>
+                    <p className="text-sm text-cyan-400">{historyUser.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setHistoryUser(null)} className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-full transition-colors">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div className="p-0 overflow-y-auto flex-1">
+                {historyLoading ? (
+                  <div className="flex justify-center py-16">
+                    <div className="w-10 h-10 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                  </div>
+                ) : history.length > 0 ? (
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container-highest/20 sticky top-0 backdrop-blur-md">
+                        <th className="px-6 py-4 label-md text-[10px] uppercase tracking-widest text-on-surface-variant">Book</th>
+                        <th className="px-6 py-4 label-md text-[10px] uppercase tracking-widest text-on-surface-variant">Duration</th>
+                        <th className="px-6 py-4 label-md text-[10px] uppercase tracking-widest text-on-surface-variant">Started</th>
+                        <th className="px-6 py-4 label-md text-[10px] uppercase tracking-widest text-on-surface-variant">Finished</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/5">
+                      {history.map((session) => (
+                        <tr key={session.id} className="hover:bg-surface-container-high/20 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-bold text-cyan-200">{session.ebook?.title || 'Unknown Book'}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-mono text-tertiary-dim">{formatDuration(session.durationSeconds)}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-on-surface-variant">{new Date(session.startedAt).toLocaleString('id-ID')}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-on-surface-variant">{session.endedAt ? new Date(session.endedAt).toLocaleString('id-ID') : '-'}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-4xl mb-4 opacity-50">history_off</span>
+                    <p>No reading history found for this user.</p>
+                  </div>
+                )}
+              </div>
+              {historyTotalPages > 1 && (
+                <div className="px-8 py-4 border-t border-outline-variant/10 bg-surface-container-low/30 flex justify-between items-center">
+                  <span className="text-xs text-on-surface-variant uppercase tracking-widest">Page {historyPage} of {historyTotalPages}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => { const p = Math.max(1, historyPage - 1); setHistoryPage(p); fetchHistory(historyUser.id, p); }} disabled={historyPage === 1} className="p-2 text-on-surface hover:bg-surface-bright rounded disabled:opacity-30">
+                      <span className="material-symbols-outlined text-sm">chevron_left</span>
+                    </button>
+                    <button onClick={() => { const p = Math.min(historyTotalPages, historyPage + 1); setHistoryPage(p); fetchHistory(historyUser.id, p); }} disabled={historyPage === historyTotalPages} className="p-2 text-on-surface hover:bg-surface-bright rounded disabled:opacity-30">
+                      <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="absolute -top-64 -right-64 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
         <div className="absolute -bottom-64 -left-64 w-[600px] h-[600px] bg-secondary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>

@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { validate, paginationSchema } from "../middleware/validate.js";
 import { adminService } from "../services/admin.service.js";
 import { ebookService } from "../services/ebook.service.js";
+import { readingSessionService } from "../services/reading-session.service.js";
 
 const router = Router();
 
@@ -170,6 +171,29 @@ router.delete(
       res.json({ data: deleted, message: "User deleted successfully" });
     } catch (error) {
       console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/users/:id/history
+ * Admin view of a specific user's reading history.
+ */
+router.get(
+  "/users/:id/history",
+  validate({ params: userIdParamSchema, query: paginationSchema }),
+  async (req, res) => {
+    try {
+      const { page, limit } = req.query as any;
+      const history = await readingSessionService.getUserHistory(req.params.id as string, {
+        sort: "latest",
+        page: Number(page) || 1,
+        limit: Number(limit) || 10,
+      });
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching user history:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   }
