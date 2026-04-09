@@ -48,12 +48,13 @@ async function request<T = unknown>(
 }
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public error: string,
-    message: string
-  ) {
+  public status: number;
+  public error: string;
+
+  constructor(status: number, error: string, message: string) {
     super(message);
+    this.status = status;
+    this.error = error;
     this.name = "ApiError";
   }
 }
