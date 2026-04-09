@@ -106,31 +106,33 @@ app.use(
 );
 
 // ============================================================
-// Startup
+// Startup (Except for Serverless)
 // ============================================================
 
-app.listen(PORT, () => {
-  console.log(`🚀 TrackReader API server running on http://localhost:${PORT}`);
-  console.log(`📚 Health check: http://localhost:${PORT}/api/health`);
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 TrackReader API server running on http://localhost:${PORT}`);
+    console.log(`📚 Health check: http://localhost:${PORT}/api/health`);
 
-  // Cleanup stale reading sessions on startup
-  readingSessionService.cleanupStaleSessions().then((count) => {
-    if (count > 0) {
-      console.log(`🧹 Cleaned up ${count} stale reading sessions`);
-    }
-  });
-
-  // Periodically cleanup stale sessions (every 5 minutes)
-  setInterval(async () => {
-    try {
-      const count = await readingSessionService.cleanupStaleSessions();
+    // Cleanup stale reading sessions on startup
+    readingSessionService.cleanupStaleSessions().then((count) => {
       if (count > 0) {
         console.log(`🧹 Cleaned up ${count} stale reading sessions`);
       }
-    } catch (error) {
-      console.error("Error cleaning up stale sessions:", error);
-    }
-  }, 5 * 60 * 1000);
-});
+    });
+
+    // Periodically cleanup stale sessions (every 5 minutes)
+    setInterval(async () => {
+      try {
+        const count = await readingSessionService.cleanupStaleSessions();
+        if (count > 0) {
+          console.log(`🧹 Cleaned up ${count} stale reading sessions`);
+        }
+      } catch (error) {
+        console.error("Error cleaning up stale sessions:", error);
+      }
+    }, 5 * 60 * 1000);
+  });
+}
 
 export default app;
